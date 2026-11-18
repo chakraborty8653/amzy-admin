@@ -389,6 +389,17 @@ function isGeneratedPrivateChannelLink(value: Record<string, unknown>): boolean 
   return Boolean(digits && username === `private_${digits}` && storedLink === `https://t.me/${username}`);
 }
 
+function normalizeAdminTelegramChannelLink(value: string): string | null {
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, '');
+    if ((hostname !== 't.me' && hostname !== 'telegram.me') || url.username || url.password) return null;
+    return `https://${hostname}${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 function getPersonalEmail(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const email = value.trim();
@@ -407,10 +418,9 @@ function sanitizeAdminDatasetRow(table: string, value: Record<string, unknown>):
   if (table === 'users') return { ...value, email: getPersonalEmail(value.email) };
   if (table === 'channels') {
     const storedLink = typeof value.channel_link === 'string' ? value.channel_link.trim() : '';
-    const channelLink = !isGeneratedPrivateChannelLink(value)
-      && /^https:\/\/(?:www\.)?(?:t\.me|telegram\.me)(?:\/[^\s]*)?$/i.test(storedLink)
-      ? storedLink
-      : null;
+    const channelLink = isGeneratedPrivateChannelLink(value)
+      ? null
+      : normalizeAdminTelegramChannelLink(storedLink);
     const safeValue = { ...value };
     delete safeValue.channel_link;
     return {

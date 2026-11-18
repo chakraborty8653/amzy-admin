@@ -27,6 +27,8 @@ export function deduplicateAdminChannelRows(
     if (!group) {
       group = { row, userIds: new Set<string>() };
       groups.set(key, group);
+    } else if (!group.row.channelLink && row.channelLink) {
+      group.row = { ...group.row, channelLink: row.channelLink };
     }
 
     if (row.user_id !== null && row.user_id !== undefined) {

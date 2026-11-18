@@ -157,7 +157,7 @@ export const ConnectChannelModal: React.FC<ConnectChannelModalProps> = ({
           const videoChannel: TelegramChannelConfig = {
             ...channel,
             sourceLink: isTelegramInviteLink(link)
-              ? link
+              ? (/^https?:\/\//i.test(link) ? link : `https://${link}`)
               : `https://t.me/${channel.username.replace(/^@/, '')}`,
             items: videos,
             featured: videos[0],
