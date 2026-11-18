@@ -1,0 +1,14 @@
+FFmpeg E-AC-3 audio decoder
+
+This application bundles FFmpeg 6.0, configured with the E-AC-3 audio decoder
+for Android playback. FFmpeg is distributed under the GNU Lesser General Public
+License, version 2.1 or later. The full license text is in
+FFmpeg-LGPLv2.1.txt. The corresponding FFmpeg 6.0 source is included as
+FFmpeg-6.0-source.tar in the APK. The project source archive is
+FFmpeg-6.0-source.tar.gz; Android packaging expands it and removes the .gz
+suffix.
+
+The FFmpeg source is unmodified. The FFmpeg build enables the eac3 decoder and
+disables other decoders, encoders, and optional libraries. The Android JNI
+renderer source is based on AndroidX Media3 1.5.1 and is licensed under Apache
+License 2.0; see Media3-APACHE-2.0.txt.

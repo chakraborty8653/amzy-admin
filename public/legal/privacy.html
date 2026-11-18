@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>AMZY Privacy Policy</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.65 system-ui, sans-serif; background: #111; color: #e5e7eb; }
+    body { margin: 0; }
+    main { max-width: 820px; margin: auto; padding: 32px 22px 64px; }
+    h1, h2 { color: #fff; line-height: 1.2; }
+    h1 { font-size: 2rem; }
+    h2 { font-size: 1.2rem; margin-top: 30px; }
+    a { color: #7dd3fc; }
+    small { color: #a1a1aa; }
+    .links { display: flex; gap: 18px; flex-wrap: wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>AMZY Privacy Policy</h1>
+    <p><small>Effective date: November 2, 2026</small></p>
+    <p>AMZY is operated by Chakraborty Compliance. This policy explains what the AMZY Android app and website process when you use Telegram sign-in, cloud sync, channel lists, favorites, video playback, and Watch Rooms.</p>
+
+    <h2>Information we process</h2>
+    <p>When cloud sync is enabled, AMZY receives your Telegram account identifier, display name, username, profile-photo URL, and phone number when available. It stores the Telegram group/channel references and favorites you choose to sync, including IDs and related title, channel, caption, poster, backdrop, or media URL fields when supplied. A device public key is stored to validate native sign-in; the private key stays in Android Keystore.</p>
+    <p>Telegram login codes, two-step verification passwords, the TDLib authorization database, and private Telegram media credentials are handled on your device and are not sent to AMZY's Supabase database. The native cloud-session token is held in the app's private Android preferences. App preferences, watch progress, download files, and local history are stored on your device.</p>
+    <p>Watch Rooms may process room codes, nicknames, platform type, shared video metadata, playback position, and participant activity timestamps. Room membership does not grant Telegram access. Server requests expose an IP address used for abuse prevention and rate limiting; stale rate-limit counters are periodically removed.</p>
+
+    <h2>How information is used and shared</h2>
+    <p>Supabase hosts account and sync data and processes API requests for AMZY. Telegram provides sign-in verification, group/channel information, and video/media delivery. We do not sell personal information. The current app build does not include advertising or analytics SDKs.</p>
+
+    <h2>Retention and deletion</h2>
+    <p>Cloud account data is retained while the account is active. You can delete it in the app's Profile screen or use the independent <a href="delete-account.html">AMZY account deletion page</a>. Deleting a cloud account removes its profile, saved channels, favorites, playlists, device key, and pending verification records; existing AMZY session tokens stop working. A minimal Telegram account identifier is retained for up to eight days only to stop old app sessions from recreating deleted cloud data, then it is automatically purged. Watch Rooms expire after their stated lifetime. Deleting cloud data does not erase Telegram's own records or local downloads/TDLib data; remove local app data or uninstall AMZY to clear those from your device.</p>
+
+    <h2>Security and children</h2>
+    <p>Requests use HTTPS. Native account login remains on-device; cloud sync is enabled only after a Telegram bot challenge. AMZY is not designed for children and may display content from Telegram channels selected by the user.</p>
+
+    <h2>Contact</h2>
+    <p>For privacy questions or requests, contact <a href="mailto:service@chakrabortycompliance.in">service@chakrabortycompliance.in</a>.</p>
+    <p class="links"><a href="delete-account.html">Delete an AMZY account</a><a href="https://telegram.org/privacy">Telegram Privacy Policy</a></p>
+  </main>
+</body>
+</html>

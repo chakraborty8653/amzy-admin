@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="index,follow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://yzoxjvxgepzfsnyeiwdx.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <title>Delete your AMZY account</title>
+  <style>
+    :root { color-scheme: dark; font: 16px/1.6 system-ui, sans-serif; background: #111; color: #e5e7eb; }
+    body { margin: 0; }
+    main { max-width: 620px; margin: 12vh auto; padding: 28px 22px; background: #1a1a1a; border: 1px solid #3f3f46; border-radius: 14px; }
+    h1 { color: #fff; line-height: 1.2; }
+    button, .action { display: inline-block; background: #e50914; color: #fff; border: 0; border-radius: 8px; padding: 12px 16px; font-weight: 700; text-decoration: none; cursor: pointer; }
+    button:disabled { opacity: .55; }
+    #status { min-height: 3em; color: #a1a1aa; }
+    a { color: #7dd3fc; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Delete your AMZY cloud account</h1>
+    <p>This verifies the Telegram account linked to your AMZY cloud data, then deletes the cloud profile, saved channels, favorites, playlists, device key, and pending verification records. A minimal account identifier is retained for up to eight days to revoke old sessions, then automatically purged. It does not delete your Telegram account or erase local AMZY downloads/Telegram data on a device.</p>
+    <button id="start" type="button">Verify and delete account</button>
+    <p id="status" role="status" aria-live="polite">You will confirm ownership using a one-time Telegram bot link.</p>
+    <p><a href="privacy.html">Privacy Policy</a> · <a href="mailto:service@chakrabortycompliance.in">Contact support</a></p>
+  </main>
+  <script>
+    const apiBase = 'https://yzoxjvxgepzfsnyeiwdx.supabase.co/functions/v1/teleflix-api';
+    const button = document.getElementById('start');
+    const status = document.getElementById('status');
+    const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      status.textContent = 'Creating a secure verification link…';
+      try {
+        const challengeResponse = await fetch(`${apiBase}/auth/native/deletion-challenge`);
+        const challengeData = await challengeResponse.json();
+        if (!challengeResponse.ok || !challengeData.challenge || !challengeData.botUsername) {
+          throw new Error(challengeData.error || 'Could not create a verification link.');
+        }
+
+        const verifyLink = document.createElement('a');
+        verifyLink.className = 'action';
+        verifyLink.target = '_blank';
+        verifyLink.rel = 'noopener';
+        verifyLink.href = `https://t.me/${encodeURIComponent(challengeData.botUsername)}?start=${encodeURIComponent(challengeData.challenge)}`;
+        verifyLink.textContent = 'Verify in Telegram';
+        status.replaceChildren(
+          document.createTextNode('Open the bot link and press Start. Return here; deletion will finish automatically. '),
+          verifyLink,
+        );
+
+        for (let attempt = 0; attempt < 55; attempt += 1) {
+          await pause(2000);
+          const response = await fetch(`${apiBase}/auth/native/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ challenge: challengeData.challenge }),
+          });
+          if (response.status === 409) continue;
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Deletion could not be completed.');
+          status.textContent = 'Your AMZY cloud account and associated cloud data have been deleted.';
+          button.hidden = true;
+          return;
+        }
+        throw new Error('Verification expired. Start again to request deletion.');
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : 'Deletion could not be completed.';
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

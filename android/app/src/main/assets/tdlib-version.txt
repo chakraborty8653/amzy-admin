@@ -1,0 +1,3 @@
+Official TDLib source commit: 9d92b49bc5d0d2e29fe518239af647a88f8680e6
+Android ABIs: arm64-v8a, x86_64
+Android API level: 24

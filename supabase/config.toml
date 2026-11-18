@@ -1,0 +1,2 @@
+[functions.teleflix-api]
+verify_jwt = false

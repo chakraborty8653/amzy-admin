@@ -1,0 +1,268 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    background-color: #141414;
+    color: #e5e5e5;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    background-color: #000;
+    min-height: 100%;
+  }
+}
+
+.app-content {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.app-header {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-area-overlay {
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+}
+
+body.native-video-transparent,
+body.native-video-transparent #root {
+  background: transparent !important;
+}
+
+.native-video-active {
+  background: transparent !important;
+}
+
+.native-video-active > :not(.native-video-overlay) {
+  visibility: hidden !important;
+}
+
+.font-bebas {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Netflix brand red gradient */
+.netflix-red-gradient {
+  background: linear-gradient(180deg, #E50914 0%, #B81D24 100%);
+}
+
+/* Cinematic Vignette */
+.cinematic-vignette {
+  background: radial-gradient(circle at center, transparent 30%, rgba(20, 20, 20, 0.8) 100%);
+}
+
+/* Bottom Fade for hero banner */
+.hero-gradient-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.08) 38%,
+    rgba(0, 0, 0, 0.4) 68%,
+    rgba(0, 0, 0, 0.68) 100%
+  );
+}
+
+.hero-slide-background {
+  opacity: 0.45;
+}
+
+.hero-side-gradient {
+  background: linear-gradient(
+    90deg,
+    rgba(20, 20, 20, 0.9) 0%,
+    rgba(20, 20, 20, 0.6) 35%,
+    rgba(20, 20, 20, 0) 100%
+  );
+}
+
+.refresh-spinner {
+  position: relative;
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #e50914;
+  border-right-color: #e50914;
+  border-radius: 50%;
+  animation: refresh-spinner-rotate 800ms linear infinite;
+}
+
+.refresh-spinner-play {
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid #e50914;
+}
+
+@keyframes refresh-spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.amzy-launch-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+  opacity: 1;
+}
+
+.amzy-launch-splash-exit {
+  animation: amzy-splash-exit 450ms ease-in both;
+  pointer-events: none;
+}
+
+.amzy-launch-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.amzy-launch-logo {
+  width: clamp(100px, 30vw, 160px);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 0 28px rgba(229, 9, 20, 0.32));
+  animation: amzy-logo-enter 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.amzy-launch-wordmark {
+  color: #e50914;
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 30px;
+  letter-spacing: 0.2em;
+  opacity: 0;
+  animation: amzy-wordmark-enter 500ms 300ms ease-out both;
+}
+
+.amzy-launch-progress {
+  width: 82px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #292929;
+}
+
+.amzy-launch-progress::after {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: #e50914;
+  content: '';
+  animation: amzy-progress 900ms ease-in-out infinite;
+}
+
+@keyframes amzy-logo-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.62);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes amzy-wordmark-enter {
+  from {
+    opacity: 0;
+    letter-spacing: 0.5em;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.2em;
+    transform: translateY(0);
+  }
+}
+
+@keyframes amzy-progress {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(260%);
+  }
+}
+
+@keyframes amzy-splash-exit {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .refresh-spinner,
+  .amzy-launch-logo,
+  .amzy-launch-wordmark,
+  .amzy-launch-progress::after,
+  .amzy-launch-splash-exit {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+}
+
+/* Glassmorphism modal */
+.glass-panel {
+  background: rgba(24, 24, 24, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Custom range input slider for video player */
+input[type=range].netflix-slider {
+  accent-color: #E50914;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

@@ -1,0 +1,6 @@
+{
+  "name": "AMZY - Telegram Stream Hub",
+  "description": "Stream video and photo content from any Telegram channel in a sleek, Netflix-styled streaming app.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
