@@ -96,15 +96,15 @@ npx supabase functions deploy teleflix-api --no-verify-jwt --project-ref yzoxjvx
 
 ### Deploy the admin page to GitHub Pages
 
-The GitHub Actions workflow builds the Vite site and publishes `dist` to GitHub Pages whenever a commit is pushed to `main`. For a private repository, the GitHub account or organization must have a plan that supports Pages for private repositories.
+The GitHub Actions workflow builds the Vite site on pushes to `main`. It publishes `dist` only after `PAGES_DEPLOY_ENABLED=true` is set, so a build cannot accidentally publish the site before private Pages access is configured. A privately published Pages site requires a GitHub Enterprise Cloud organization.
 
-1. In repository **Settings → Pages**, set the source to **GitHub Actions**.
-2. In **Settings → Secrets and variables → Actions → Variables**, add:
+1. Move the repository into the Enterprise Cloud organization and configure its Pages site for private access. In **Settings → Pages**, set the source to **GitHub Actions**.
+2. In repository **Settings → Secrets and variables → Actions → Variables**, add:
    - `VITE_SUPABASE_FUNCTION_URL`
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
-3. Keep the existing Supabase Edge Function `FRONTEND_URL` unchanged, then add `ADDITIONAL_FRONTEND_URLS=https://chakraborty8653.github.io` under **Supabase Dashboard → Edge Functions → Secrets**. This allows GitHub Pages requests without removing the existing website origin.
-4. Deploy the updated Edge Function, then push the project to the `main` branch. The admin page will be at `https://chakraborty8653.github.io/amzy-admin/admin.html`.
+3. Keep the existing Supabase Edge Function `FRONTEND_URL` unchanged, then add `ADDITIONAL_FRONTEND_URLS=https://<enterprise-org>.github.io` under **Supabase Dashboard → Edge Functions → Secrets**. This allows GitHub Pages requests without removing the existing website origin.
+4. Deploy the updated Edge Function, then set the Actions variable `PAGES_DEPLOY_ENABLED=true`. A push to `main` will publish the site at `https://<enterprise-org>.github.io/amzy-admin/admin.html`.
 
 The anon/publishable key is included in the public browser bundle; never use the service-role key or put it in a `VITE_` variable. The admin page is static, while database requests continue to use the Supabase Edge Function.
 
