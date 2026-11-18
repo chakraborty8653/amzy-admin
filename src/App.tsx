@@ -65,6 +65,24 @@ import {
 const SAVED_WATCH_ROOMS_KEY = 'amzy_saved_watch_rooms';
 const LOCAL_VIDEO_HISTORY_KEY = 'amzy_local_video_history';
 
+function getGeneratedPrivateChannelUsername(telegramChatId?: string | null): string | null {
+  const digits = telegramChatId?.replace(/\D/g, '');
+  return digits ? `private_${digits}` : null;
+}
+
+function isGeneratedPrivateChannelLink(
+  username: string,
+  telegramChatId: string | null | undefined,
+  link: string | null | undefined,
+): boolean {
+  const generatedUsername = getGeneratedPrivateChannelUsername(telegramChatId);
+  return Boolean(
+    generatedUsername
+    && username.replace(/^@/, '').toLowerCase() === generatedUsername
+    && link?.trim().toLowerCase() === `https://t.me/${generatedUsername}`,
+  );
+}
+
 function uniqueLocalVideoHistory(entries: LocalVideoHistoryEntry[]): LocalVideoHistoryEntry[] {
   const entriesBySource = new Map<string, LocalVideoHistoryEntry>();
   for (const entry of entries) {
@@ -663,7 +681,11 @@ export default function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               channelUsername: channel.username,
-              channelLink: channel.sourceLink,
+              channelLink: isGeneratedPrivateChannelLink(
+                channel.username,
+                channel.telegramChatId,
+                channel.sourceLink,
+              ) ? undefined : channel.sourceLink,
               title: channel.title,
               category: channel.category,
               description: channel.description,
@@ -715,18 +737,30 @@ export default function App() {
         );
         const results = await Promise.allSettled(
           missingChannels.map((channel) => {
-            if (channel.telegramChatId && channel.isPublicTelegramChat === false) {
+            const generatedUsername = getGeneratedPrivateChannelUsername(channel.telegramChatId);
+            if (
+              channel.telegramChatId
+              && (
+                channel.isPublicTelegramChat === false
+                || channel.channelUsername.toLowerCase() === generatedUsername
+              )
+            ) {
+              const channelLink = isGeneratedPrivateChannelLink(
+                channel.channelUsername,
+                channel.telegramChatId,
+                channel.channelLink,
+              ) ? undefined : channel.channelLink || undefined;
               if (Capacitor.isNativePlatform()) {
                 return fetchJoinedPrivateChannelFeed(channel.telegramChatId).then((restoredChannel) => ({
                   ...restoredChannel,
-                  sourceLink: channel.channelLink || undefined,
+                  sourceLink: channelLink,
                 }));
               }
               return Promise.resolve({
                 id: `private_${channel.telegramChatId}`,
                 username: channel.channelUsername,
                 title: channel.title,
-                sourceLink: channel.channelLink || undefined,
+                sourceLink: channelLink,
                 telegramChatId: channel.telegramChatId,
                 telegramChatKind: channel.telegramChatKind || 'channel',
                 isPublicTelegramChat: false,
@@ -736,7 +770,11 @@ export default function App() {
             }
             return fetchPublicChannelFeed(channel.channelUsername).then((restoredChannel) => ({
               ...restoredChannel,
-              sourceLink: channel.channelLink || `https://t.me/${channel.channelUsername.replace(/^@/, '')}`,
+              sourceLink: channel.channelLink || (
+                channel.channelUsername.toLowerCase().startsWith('private_')
+                  ? undefined
+                  : `https://t.me/${channel.channelUsername.replace(/^@/, '')}`
+              ),
             }));
           })
         );
@@ -902,7 +940,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           channelUsername: newChannel.username,
-          channelLink: newChannel.sourceLink,
+          channelLink: isGeneratedPrivateChannelLink(
+            newChannel.username,
+            newChannel.telegramChatId,
+            newChannel.sourceLink,
+          ) ? undefined : newChannel.sourceLink,
           title: newChannel.title,
           category: newChannel.category,
           description: newChannel.description,

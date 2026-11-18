@@ -326,6 +326,16 @@ function maskAdminRoomCode(code: string): string {
   return code.length > 4 ? `${code.slice(0, 2)}••••••${code.slice(-2)}` : '••••';
 }
 
+function isGeneratedPrivateChannelLink(value: Record<string, unknown>): boolean {
+  const username = typeof value.channel_username === 'string'
+    ? value.channel_username.trim().replace(/^@/, '').toLowerCase()
+    : '';
+  const telegramChatId = typeof value.telegram_chat_id === 'string' ? value.telegram_chat_id : '';
+  const digits = telegramChatId.replace(/\D/g, '');
+  const storedLink = typeof value.channel_link === 'string' ? value.channel_link.trim().toLowerCase() : '';
+  return Boolean(digits && username === `private_${digits}` && storedLink === `https://t.me/${username}`);
+}
+
 async function loadAdminChannelRows(
   db: ReturnType<typeof getSupabase>,
   dataset: typeof ADMIN_DATASETS[number],
@@ -374,7 +384,8 @@ function sanitizeAdminDatasetRow(table: string, value: Record<string, unknown>):
   if (table === 'users') return { ...value, email: getPersonalEmail(value.email) };
   if (table === 'channels') {
     const storedLink = typeof value.channel_link === 'string' ? value.channel_link.trim() : '';
-    const channelLink = /^https:\/\/(?:www\.)?(?:t\.me|telegram\.me)(?:\/[^\s]*)?$/i.test(storedLink)
+    const channelLink = !isGeneratedPrivateChannelLink(value)
+      && /^https:\/\/(?:www\.)?(?:t\.me|telegram\.me)(?:\/[^\s]*)?$/i.test(storedLink)
       ? storedLink
       : null;
     const safeValue = { ...value };
@@ -1883,7 +1894,7 @@ async function route(request: Request): Promise<Response> {
       id: channel.id,
       userId: channel.user_id,
       channelUsername: channel.channel_username,
-      channelLink: channel.channel_link,
+      channelLink: isGeneratedPrivateChannelLink(channel) ? null : channel.channel_link,
       title: channel.title,
       category: channel.category,
       description: channel.description,
