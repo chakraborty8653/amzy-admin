@@ -605,10 +605,12 @@ export default function App() {
         saveChannels(visibleCustomChannels);
       }
 
-      // Merge unique channels
+      // Demo channels are a fallback; a user's saved channels take precedence.
       const channelMap = new Map<string, TelegramChannelConfig>();
-      demoChannels.map(filterChannelVideos).forEach((c) => channelMap.set(c.id, c));
-      visibleCustomChannels.forEach((c) => channelMap.set(c.id, c));
+      const initialChannels = visibleCustomChannels.length > 0
+        ? visibleCustomChannels
+        : demoChannels.map(filterChannelVideos);
+      initialChannels.forEach((channel) => channelMap.set(channel.id, channel));
 
       let allChannels = Array.from(channelMap.values());
 
@@ -619,8 +621,10 @@ export default function App() {
       if (urlChannel) {
         try {
           const directChannel = await fetchPublicChannelFeed(urlChannel);
-          channelMap.set(directChannel.id, directChannel);
-          allChannels = Array.from(channelMap.values());
+          const customChannels = Array.from(channelMap.values()).filter((channel) => channel.isCustom);
+          const directChannelMap = new Map(customChannels.map((channel) => [channel.id, channel]));
+          directChannelMap.set(directChannel.id, directChannel);
+          allChannels = Array.from(directChannelMap.values());
           setChannels(allChannels);
           setActiveChannel(directChannel);
           saveActiveChannelId(directChannel.id);
@@ -697,7 +701,7 @@ export default function App() {
             isPublicTelegramChat?: boolean | null;
           }[];
         } = await response.json();
-        const existingChannels = new Set(channels.map((channel) => (
+        const existingChannels = new Set(channels.filter((channel) => channel.isCustom).map((channel) => (
           channel.telegramChatId
             ? `chat:${channel.telegramChatId}`
             : `username:${channel.username.toLowerCase()}`
@@ -749,16 +753,24 @@ export default function App() {
         if (results.some((result) => result.status === 'rejected')) {
           showToast('Some saved Telegram channels could not be restored');
         }
-        if (restored.length === 0) return;
+        const hasSavedCloudChannels = (data.channels || []).length > 0;
+        if (!hasSavedCloudChannels && restored.length === 0) return;
 
         setChannels((previous) => {
-          const merged = new Map(previous.map((channel) => [channel.id, channel]));
+          const channelsToKeep = hasSavedCloudChannels || restored.length > 0
+            ? previous.filter((channel) => channel.isCustom)
+            : previous;
+          const merged = new Map(channelsToKeep.map((channel) => [channel.id, channel]));
           restored.forEach((channel) => merged.set(channel.id, channel));
           const updated = Array.from(merged.values());
           saveChannels(updated.filter((channel) => channel.isCustom));
           const savedActiveId = getSavedActiveChannelId();
           const savedActiveChannel = updated.find((channel) => channel.id === savedActiveId);
-          if (savedActiveChannel) setActiveChannel(savedActiveChannel);
+          if (hasSavedCloudChannels || restored.length > 0) {
+            setActiveChannel(savedActiveChannel || updated.find((channel) => channel.isCustom) || null);
+          } else if (savedActiveChannel) {
+            setActiveChannel(savedActiveChannel);
+          }
           return updated;
         });
       } catch (error) {
@@ -875,7 +887,9 @@ export default function App() {
     setChannels((prev) => {
       const existing = prev.find((channel) => channel.id === newChannel.id);
       const channelToSave = existing ? mergeChannelHistory(existing, newChannel) : newChannel;
-      const filtered = prev.filter((channel) => channel.id !== newChannel.id);
+      const filtered = prev.filter((channel) => (
+        channel.id !== newChannel.id && (!newChannel.isCustom || channel.isCustom)
+      ));
       const updated = [channelToSave, ...filtered];
       // Save only custom/modified channels to localStorage
       saveChannels(updated.filter((c) => c.isCustom));
