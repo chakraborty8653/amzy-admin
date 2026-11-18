@@ -373,15 +373,10 @@ function getPersonalEmail(value: unknown): string | null {
 function sanitizeAdminDatasetRow(table: string, value: Record<string, unknown>): Record<string, unknown> {
   if (table === 'users') return { ...value, email: getPersonalEmail(value.email) };
   if (table === 'channels') {
-    const username = typeof value.channel_username === 'string'
-      ? value.channel_username.trim().replace(/^@/, '')
-      : '';
     const storedLink = typeof value.channel_link === 'string' ? value.channel_link.trim() : '';
     const channelLink = /^https:\/\/(?:www\.)?(?:t\.me|telegram\.me)(?:\/[^\s]*)?$/i.test(storedLink)
       ? storedLink
-      : /^[a-zA-Z0-9_]{5,}$/.test(username)
-        ? `https://t.me/${username}`
-        : null;
+      : null;
     const safeValue = { ...value };
     delete safeValue.channel_link;
     return {
