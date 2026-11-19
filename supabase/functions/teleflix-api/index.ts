@@ -561,6 +561,30 @@ async function handleAdminRoute(
     return json({ users, total: count || 0, page, pageSize }, 200, origin);
   }
 
+  const userChannelsMatch = path.match(/^\/admin\/users\/(\d+)\/channels$/);
+  if (userChannelsMatch && request.method === 'GET') {
+    const userId = Number(userChannelsMatch[1]);
+    if (!Number.isSafeInteger(userId) || userId <= 0) {
+      return json({ error: 'Invalid user ID.' }, 400, origin);
+    }
+    const { data, error } = await db.from('channels')
+      .select('id, channel_username, channel_link, title, telegram_chat_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const channels = (data || []).map((row: Record<string, unknown>) => {
+      const safeRow = sanitizeAdminDatasetRow('channels', row);
+      return {
+        id: row.id,
+        title: row.title,
+        channelUsername: row.channel_username,
+        channelLink: safeRow.channelLink,
+        createdAt: row.created_at,
+      };
+    });
+    return json({ channels }, 200, origin);
+  }
+
   if (path === '/admin/notifications' && request.method === 'GET') {
     const { data, error } = await db.from('announcements')
       .select('id, title, message, is_published, created_at')

@@ -1482,6 +1482,36 @@ app.get('/api/admin/users', requireSupabaseAdmin, async (req: Request, res) => {
   }
 });
 
+app.get('/api/admin/users/:userId/channels', requireSupabaseAdmin, async (req: Request, res) => {
+  const userId = Number(req.params.userId);
+  if (!Number.isSafeInteger(userId) || userId <= 0) {
+    res.status(400).json({ error: 'Invalid user ID.' });
+    return;
+  }
+
+  try {
+    const { data, error } = await getSupabaseAdmin().from('channels')
+      .select('id, channel_username, channel_link, title, telegram_chat_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const channels = (data || []).map((row) => {
+      const safeRow = sanitizeAdminDatasetRow('channels', row as Record<string, unknown>);
+      return {
+        id: row.id,
+        title: row.title,
+        channelUsername: row.channel_username,
+        channelLink: safeRow.channelLink,
+        createdAt: row.created_at,
+      };
+    });
+    res.json({ channels });
+  } catch (error) {
+    console.error('Failed to retrieve admin user channels:', error);
+    res.status(500).json({ error: 'Failed to retrieve admin user channels.' });
+  }
+});
+
 app.get('/api/admin/data', requireSupabaseAdmin, async (req: Request, res) => {
   const db = getSupabaseAdmin();
   const table = typeof req.query.table === 'string' ? req.query.table : '';

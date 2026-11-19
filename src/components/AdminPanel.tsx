@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Trash2,
   Users,
+  X,
 } from 'lucide-react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { adminBackendFetch } from '../services/backendApi';
@@ -54,6 +55,14 @@ interface AdminUser {
   createdAt: string | null;
   channelCount: number;
   favoriteCount: number;
+}
+
+interface AdminChannel {
+  id: number;
+  title: string;
+  channelUsername: string;
+  channelLink: string | null;
+  createdAt: string | null;
 }
 
 interface AdminNotification {
@@ -141,6 +150,12 @@ export function AdminPanel() {
   const [usersError, setUsersError] = useState<string | null>(null);
   const [userSearch, setUserSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [userChannels, setUserChannels] = useState<AdminChannel[]>([]);
+  const [userChannelsLoading, setUserChannelsLoading] = useState(false);
+  const [userChannelsError, setUserChannelsError] = useState<string | null>(null);
+  const [userChannelsCopyError, setUserChannelsCopyError] = useState<string | null>(null);
+  const [copiedUserChannel, setCopiedUserChannel] = useState<number | 'all' | null>(null);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -227,6 +242,8 @@ export function AdminPanel() {
     setDatasets([]);
     setDatasetPage(null);
     setNotifications([]);
+    setSelectedUser(null);
+    setUserChannels([]);
   };
 
   const requestAdmin = useCallback(async (path: string, init: RequestInit = {}) => {
@@ -278,6 +295,37 @@ export function AdminPanel() {
       setUsersLoading(false);
     }
   }, [page, requestAdmin, userSearch]);
+
+  const openUserChannels = async (user: AdminUser) => {
+    setSelectedUser(user);
+    setUserChannels([]);
+    setUserChannelsLoading(true);
+    setUserChannelsError(null);
+    setUserChannelsCopyError(null);
+    setCopiedUserChannel(null);
+    try {
+      const response = await requestAdmin(`/admin/users/${user.id}/channels`);
+      if (!response.ok) throw new Error(await readError(response));
+      const data = await response.json() as { channels: AdminChannel[] };
+      setUserChannels(data.channels);
+    } catch (error) {
+      setUserChannelsError(error instanceof Error ? error.message : 'User ke channel links load nahi ho sake.');
+    } finally {
+      setUserChannelsLoading(false);
+    }
+  };
+
+  const copyUserChannel = async (channelId: number | 'all', text: string) => {
+    try {
+      await copyTextToClipboard(text);
+      setCopiedUserChannel(channelId);
+      setUserChannelsCopyError(null);
+      window.setTimeout(() => setCopiedUserChannel((current) => current === channelId ? null : current), 1500);
+    } catch (error) {
+      console.error('Could not copy user Telegram channel link:', error);
+      setUserChannelsCopyError('Link copy nahi hua. Browser clipboard permission check karke dobara try karein.');
+    }
+  };
 
   const loadNotifications = useCallback(async () => {
     if (!accessToken) return;
@@ -625,7 +673,7 @@ export function AdminPanel() {
                   <div><h2 className="font-semibold">Recently joined</h2><p className="mt-1 text-xs text-zinc-500">Latest registered app users</p></div>
                   <button type="button" onClick={() => navigateSection('users')} className="text-xs font-semibold text-[#ff7077] hover:text-white">All users →</button>
                 </div>
-                <UserTable users={usersPage?.users.slice(0, 5) || []} loading={usersLoading} />
+                <UserTable users={usersPage?.users.slice(0, 5) || []} loading={usersLoading} onSelectUser={(user) => void openUserChannels(user)} />
               </section>
               <section className="mt-5 flex flex-col gap-4 rounded-2xl border border-[#E50914]/20 bg-gradient-to-br from-[#E50914]/10 to-transparent p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
                 <div><h2 className="font-semibold">Send an app-wide update</h2><p className="mt-1 text-xs text-zinc-400">Publish an announcement for users in AMZY.</p></div>
@@ -643,7 +691,7 @@ export function AdminPanel() {
                   <input value={userSearch} onChange={(event) => { setUserSearch(event.target.value); setPage(1); }} placeholder="Search name, username, email…" className="w-full rounded-xl border border-white/10 bg-black/20 py-2.5 pl-9 pr-3 text-xs text-white outline-none placeholder:text-zinc-600 focus:border-[#E50914]/60" />
                 </label>
               </div>
-              <UserTable users={usersPage?.users || []} loading={usersLoading} />
+              <UserTable users={usersPage?.users || []} loading={usersLoading} onSelectUser={(user) => void openUserChannels(user)} />
               <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-4 text-xs text-zinc-500">
                 <span>Page {page} of {pageCount}</span>
                 <div className="flex gap-2">
@@ -789,11 +837,74 @@ export function AdminPanel() {
           )}
         </div>
       </main>
+      {selectedUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <section role="dialog" aria-modal="true" aria-labelledby="user-channels-title" className="max-h-[85vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-[#111318] shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-white/[0.07] p-5 sm:p-6">
+              <div className="min-w-0">
+                <h2 id="user-channels-title" className="truncate text-lg font-semibold text-white">{selectedUser.displayName || 'Telegram user'} · Channels</h2>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {userChannelsLoading || userChannelsError ? selectedUser.channelCount : userChannels.length} channels
+                  {!userChannelsLoading && !userChannelsError && ` · ${userChannels.filter((channel) => channel.channelLink).length} original links saved`}
+                </p>
+              </div>
+              <button type="button" aria-label="Close channel links" onClick={() => setSelectedUser(null)} className="rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-white">
+                <X className="h-4 w-4" />
+              </button>
+            </header>
+            <div className="max-h-[calc(85vh-90px)] overflow-y-auto p-5 sm:p-6">
+              {userChannelsCopyError && <p role="alert" className="mb-3 text-xs text-red-300">{userChannelsCopyError}</p>}
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-xs text-zinc-500">Telegram channel links saved for this user</p>
+                <button
+                  type="button"
+                  disabled={userChannelsLoading || !userChannels.some((channel) => channel.channelLink)}
+                  onClick={() => void copyUserChannel('all', userChannels.flatMap((channel) => channel.channelLink ? [channel.channelLink] : []).join('\n'))}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-zinc-300 hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {copiedUserChannel === 'all' ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copiedUserChannel === 'all' ? 'Copied all' : 'Copy all links'}
+                </button>
+              </div>
+              {userChannelsLoading ? (
+                <div className="flex justify-center py-12"><LoaderCircle className="h-5 w-5 animate-spin text-zinc-500" /></div>
+              ) : userChannelsError ? (
+                <p role="alert" className="rounded-xl border border-red-500/20 bg-red-500/[0.07] p-4 text-sm text-red-200">{userChannelsError}</p>
+              ) : userChannels.length ? (
+                <ul className="space-y-3">
+                  {userChannels.map((channel) => (
+                    <li key={channel.id} className="rounded-xl border border-white/[0.07] bg-black/20 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-zinc-200">{channel.title || channel.channelUsername || 'Untitled channel'}</p>
+                          <p className="mt-1 text-[10px] text-zinc-600">{channel.channelUsername ? `@${channel.channelUsername.replace(/^@/, '')}` : 'Telegram channel'}</p>
+                          {channel.channelLink ? (
+                            <a href={channel.channelLink} target="_blank" rel="noopener noreferrer" className="mt-2 block break-all text-xs text-sky-300 underline decoration-sky-300/40 underline-offset-2 hover:text-sky-200">{channel.channelLink}</a>
+                          ) : (
+                            <p className="mt-2 text-xs text-amber-300/80">Original link not saved</p>
+                          )}
+                        </div>
+                        {channel.channelLink && (
+                          <button type="button" aria-label={`Copy link for ${channel.title || channel.channelUsername}`} title={copiedUserChannel === channel.id ? 'Copied' : 'Copy link'} onClick={() => { if (channel.channelLink) void copyUserChannel(channel.id, channel.channelLink); }} className="shrink-0 rounded-lg p-2 text-zinc-500 hover:bg-white/5 hover:text-zinc-200">
+                            {copiedUserChannel === channel.id ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="py-12 text-center text-xs text-zinc-600">Is user ke koi saved channels nahi hain.</p>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
 
-function UserTable({ users, loading }: { users: AdminUser[]; loading: boolean }) {
+function UserTable({ users, loading, onSelectUser }: { users: AdminUser[]; loading: boolean; onSelectUser: (user: AdminUser) => void }) {
   if (loading && !users.length) {
     return <div className="flex justify-center py-14"><LoaderCircle className="h-5 w-5 animate-spin text-zinc-500" /></div>;
   }
@@ -811,12 +922,20 @@ function UserTable({ users, loading }: { users: AdminUser[]; loading: boolean })
               <td className="px-3 py-3.5">
                 <div className="flex items-center gap-3">
                   {adminUser.photoUrl ? <img src={adminUser.photoUrl} alt="" className="h-9 w-9 rounded-xl object-cover" /> : <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/[0.06] text-xs font-bold text-zinc-400">{(adminUser.displayName || adminUser.email || '?').slice(0, 1).toUpperCase()}</span>}
-                  <span className="min-w-0"><span className="block max-w-48 truncate text-xs font-semibold text-zinc-200">{adminUser.displayName || 'Telegram user'}</span><span className="block max-w-48 truncate text-[10px] text-zinc-600">{adminUser.email || 'Personal email not provided'}</span></span>
+                  <button type="button" onClick={() => onSelectUser(adminUser)} className="min-w-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E50914]">
+                    <span className="block max-w-48 truncate text-xs font-semibold text-zinc-200 hover:text-white">{adminUser.displayName || 'Telegram user'}</span>
+                    <span className="block max-w-48 truncate text-[10px] text-zinc-600">{adminUser.email || 'Personal email not provided'}</span>
+                  </button>
                 </div>
               </td>
               <td className="px-3 py-3.5 text-xs text-zinc-400">{adminUser.username ? `@${adminUser.username}` : adminUser.telegramId || '—'}<span className="block text-[10px] text-zinc-700">{adminUser.uid}</span></td>
               <td className="px-3 py-3.5 text-xs text-zinc-500">{adminUser.phoneNumber || '—'}</td>
-              <td className="px-3 py-3.5 text-xs text-zinc-400">{adminUser.channelCount} channels<span className="block text-[10px] text-zinc-600">{adminUser.favoriteCount} favorites</span></td>
+              <td className="px-3 py-3.5 text-xs text-zinc-400">
+                <button type="button" onClick={() => onSelectUser(adminUser)} aria-label={`View ${adminUser.channelCount} channels for ${adminUser.displayName || 'Telegram user'}`} className="text-left hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E50914]">
+                  {adminUser.channelCount} channels<span className="block text-[10px] text-[#ff7077]">View channel links</span>
+                </button>
+                <span className="block text-[10px] text-zinc-600">{adminUser.favoriteCount} favorites</span>
+              </td>
               <td className="px-3 py-3.5 text-xs text-zinc-500">{formatDate(adminUser.createdAt)}</td>
             </tr>
           ))}
