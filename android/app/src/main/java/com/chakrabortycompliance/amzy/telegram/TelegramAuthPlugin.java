@@ -116,6 +116,8 @@ public class TelegramAuthPlugin extends Plugin {
     private static volatile TelegramAuthPlugin activePlugin;
     private static volatile Client client;
     private static volatile String authStep = STEP_INITIALIZING;
+    private static volatile int telegramApiId;
+    private static volatile String telegramApiHash;
     private static volatile TdApi.User currentUser;
     private static volatile String lastError;
     private static volatile boolean clientClosed;
@@ -289,6 +291,27 @@ public class TelegramAuthPlugin extends Plugin {
         if (!saved) {
             call.reject("Could not save the cloud sync preference on this device.");
             return;
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void configureTelegram(PluginCall call) {
+        int apiId = call.getInt("apiId", 0);
+        String apiHash = call.getString("apiHash", "").trim();
+        if (apiId <= 0 || !apiHash.matches("(?i)[a-f0-9]{32}")) {
+            call.reject("The Telegram API configuration from the server is invalid.");
+            return;
+        }
+
+        synchronized (TelegramAuthPlugin.class) {
+            if (client != null && !clientClosed
+                && (telegramApiId != apiId || telegramApiHash == null || !telegramApiHash.equals(apiHash))) {
+                call.reject("Telegram API settings changed. Close and reopen AMZY to apply them.");
+                return;
+            }
+            telegramApiId = apiId;
+            telegramApiHash = apiHash;
         }
         call.resolve();
     }
@@ -3127,15 +3150,10 @@ public class TelegramAuthPlugin extends Plugin {
             activePlugin = this;
             if (client != null && !clientClosed) return;
 
-            int apiId;
-            try {
-                apiId = Integer.parseInt(BuildConfig.TELEGRAM_API_ID);
-            } catch (NumberFormatException error) {
-                throw new IllegalStateException("Set telegram.apiId and telegram.apiHash in android/local.properties.");
-            }
-            String apiHash = BuildConfig.TELEGRAM_API_HASH.trim();
-            if (apiId <= 0 || apiHash.isEmpty()) {
-                throw new IllegalStateException("Set telegram.apiId and telegram.apiHash in android/local.properties.");
+            int apiId = telegramApiId;
+            String apiHash = telegramApiHash;
+            if (apiId <= 0 || apiHash == null || !apiHash.matches("(?i)[a-f0-9]{32}")) {
+                throw new IllegalStateException("Telegram API settings are missing. Configure them in Admin > Settings.");
             }
 
             lastError = null;
@@ -3197,8 +3215,11 @@ public class TelegramAuthPlugin extends Plugin {
         if (state instanceof TdApi.AuthorizationStateWaitTdlibParameters) {
             if (!tdlibParametersSubmitted.compareAndSet(false, true)) return;
             try {
-                int apiId = Integer.parseInt(BuildConfig.TELEGRAM_API_ID);
-                String apiHash = BuildConfig.TELEGRAM_API_HASH.trim();
+                int apiId = telegramApiId;
+                String apiHash = telegramApiHash;
+                if (apiId <= 0 || apiHash == null || !apiHash.matches("(?i)[a-f0-9]{32}")) {
+                    throw new IllegalStateException("Telegram API settings are missing. Configure them in Admin > Settings.");
+                }
                 File storageRoot = new File(getContext().getNoBackupFilesDir(), "telegram");
                 File databaseDirectory = new File(storageRoot, "database");
                 File filesDirectory = new File(storageRoot, "files");

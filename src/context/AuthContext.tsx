@@ -16,6 +16,24 @@ import {
   type TelegramNativeAuthState,
 } from '../services/telegramNative';
 
+async function configureNativeTelegram(): Promise<void> {
+  const response = await backendFetch('/app-config/telegram');
+  const data: { apiId?: unknown; apiHash?: unknown; error?: string } = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `Telegram API settings could not be loaded (${response.status}).`);
+  }
+  if (
+    typeof data.apiId !== 'number'
+    || !Number.isSafeInteger(data.apiId)
+    || data.apiId <= 0
+    || typeof data.apiHash !== 'string'
+    || !/^[a-f0-9]{32}$/i.test(data.apiHash)
+  ) {
+    throw new Error('Telegram API settings from the server are invalid.');
+  }
+  await TelegramNative.configureTelegram({ apiId: data.apiId, apiHash: data.apiHash });
+}
+
 export interface AuthUser {
   uid: string;
   displayName: string;
@@ -154,6 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (Capacitor.isNativePlatform()) {
       let authStateListener: PluginListenerHandle | undefined;
       let browserFinishedListener: PluginListenerHandle | undefined;
+      let appUrlListener: Promise<PluginListenerHandle> | undefined;
       let browserFinishedTimeout: number | undefined;
       let backendUser: AuthUser | null = null;
       let backendSessionChecked = false;
@@ -243,18 +262,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
-      const appUrlListener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
-        const authUrl = new URL(url);
-        if (authUrl.searchParams.has('telegram_code') || authUrl.searchParams.has('telegramLogin')) {
-          nativeAuthCallbackReceived.current = true;
-          if (browserFinishedTimeout !== undefined) {
-            window.clearTimeout(browserFinishedTimeout);
-            browserFinishedTimeout = undefined;
-          }
-        }
-        void handleNativeAuthUrl(url);
-      });
-
       const applyNativeAuthState = (state: TelegramNativeAuthState) => {
         if (!isMounted) return;
         setTelegramAuthStep(state.step);
@@ -289,6 +296,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       void (async () => {
         try {
+          await configureNativeTelegram();
+          if (!isMounted) return;
+          appUrlListener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+            const authUrl = new URL(url);
+            if (authUrl.searchParams.has('telegram_code') || authUrl.searchParams.has('telegramLogin')) {
+              nativeAuthCallbackReceived.current = true;
+              if (browserFinishedTimeout !== undefined) {
+                window.clearTimeout(browserFinishedTimeout);
+                browserFinishedTimeout = undefined;
+              }
+            }
+            void handleNativeAuthUrl(url);
+          });
           authStateListener = await TelegramNative.addListener('authStateChanged', (state) => {
             latestNativeState = state;
             applyNativeAuthState(state);
@@ -378,7 +398,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (browserFinishedTimeout !== undefined) window.clearTimeout(browserFinishedTimeout);
         void authStateListener?.remove();
         void browserFinishedListener?.remove();
-        void appUrlListener.then((listener) => listener.remove());
+        void appUrlListener?.then((listener) => listener.remove());
       };
     }
 

@@ -1422,6 +1422,66 @@ app.get('/api/user/profile', requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+app.get('/api/app-config/telegram', async (_req: Request, res: Response) => {
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('telegram_runtime_config')
+      .select('api_id, api_hash')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      res.status(503).json({ error: 'Telegram API settings have not been configured by an admin.' });
+      return;
+    }
+    res.json({ apiId: data.api_id, apiHash: data.api_hash });
+  } catch (error) {
+    console.error('Failed to load Telegram runtime settings:', error);
+    res.status(500).json({ error: 'Failed to load Telegram API settings.' });
+  }
+});
+
+app.get('/api/admin/settings/telegram-api', requireSupabaseAdmin, async (_req: Request, res: Response) => {
+  try {
+    const { data, error } = await getSupabaseAdmin()
+      .from('telegram_runtime_config')
+      .select('updated_at')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    res.json({ configured: Boolean(data), updatedAt: data?.updated_at || null });
+  } catch (error) {
+    console.error('Failed to load Telegram API settings status:', error);
+    res.status(500).json({ error: 'Failed to load Telegram API settings.' });
+  }
+});
+
+app.patch('/api/admin/settings/telegram-api', requireSupabaseAdmin, async (req: Request, res: Response) => {
+  const apiId = typeof req.body?.apiId === 'number' ? req.body.apiId : 0;
+  const apiHash = typeof req.body?.apiHash === 'string' ? req.body.apiHash.trim() : '';
+  if (!Number.isSafeInteger(apiId) || apiId <= 0 || !/^[a-f0-9]{32}$/i.test(apiHash)) {
+    res.status(400).json({ error: 'Enter a valid Telegram API ID and 32-character API hash.' });
+    return;
+  }
+
+  const updatedAt = new Date().toISOString();
+  try {
+    const { error } = await getSupabaseAdmin()
+      .from('telegram_runtime_config')
+      .upsert({
+        id: true,
+        api_id: apiId,
+        api_hash: apiHash,
+        updated_at: updatedAt,
+      }, { onConflict: 'id' });
+    if (error) throw error;
+    res.json({ success: true, configured: true, updatedAt });
+  } catch (error) {
+    console.error('Failed to save Telegram API settings:', error);
+    res.status(500).json({ error: 'Failed to save Telegram API settings.' });
+  }
+});
+
 app.get('/api/admin/users', requireSupabaseAdmin, async (req: Request, res) => {
   const requestedPage = Number(req.query.page);
   const page = Number.isSafeInteger(requestedPage) && requestedPage > 0

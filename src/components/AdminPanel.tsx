@@ -9,6 +9,7 @@ import {
   Copy,
   Database,
   Film,
+  KeyRound,
   LayoutDashboard,
   LoaderCircle,
   LogIn,
@@ -25,7 +26,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { adminBackendFetch } from '../services/backendApi';
 import { getAdminAuthClient } from '../services/adminSupabase';
 
-type AdminSection = 'overview' | 'users' | 'data' | 'notifications';
+type AdminSection = 'overview' | 'users' | 'data' | 'notifications' | 'settings';
 
 interface DatasetSummary {
   name: string;
@@ -159,6 +160,14 @@ export function AdminPanel() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [telegramSettingsConfigured, setTelegramSettingsConfigured] = useState<boolean | null>(null);
+  const [telegramSettingsUpdatedAt, setTelegramSettingsUpdatedAt] = useState<string | null>(null);
+  const [telegramApiId, setTelegramApiId] = useState('');
+  const [telegramApiHash, setTelegramApiHash] = useState('');
+  const [telegramSettingsLoading, setTelegramSettingsLoading] = useState(false);
+  const [telegramSettingsSaving, setTelegramSettingsSaving] = useState(false);
+  const [telegramSettingsError, setTelegramSettingsError] = useState<string | null>(null);
+  const [telegramSettingsStatus, setTelegramSettingsStatus] = useState<string | null>(null);
   const [datasets, setDatasets] = useState<DatasetSummary[]>([]);
   const [databaseLoading, setDatabaseLoading] = useState(false);
   const [databaseError, setDatabaseError] = useState<string | null>(null);
@@ -343,6 +352,23 @@ export function AdminPanel() {
     }
   }, [requestAdmin]);
 
+  const loadTelegramSettings = useCallback(async () => {
+    if (!accessToken) return;
+    setTelegramSettingsLoading(true);
+    setTelegramSettingsError(null);
+    try {
+      const response = await requestAdmin('/admin/settings/telegram-api');
+      if (!response.ok) throw new Error(await readError(response));
+      const data = await response.json() as { configured: boolean; updatedAt: string | null };
+      setTelegramSettingsConfigured(data.configured);
+      setTelegramSettingsUpdatedAt(data.updatedAt);
+    } catch (error) {
+      setTelegramSettingsError(error instanceof Error ? error.message : 'Telegram API settings load nahi ho sakin.');
+    } finally {
+      setTelegramSettingsLoading(false);
+    }
+  }, [accessToken, requestAdmin]);
+
   const loadDatabase = useCallback(async () => {
     if (!accessToken) return;
     setDatabaseLoading(true);
@@ -401,6 +427,43 @@ export function AdminPanel() {
   useEffect(() => {
     if (!authLoading && accessToken) void loadNotifications();
   }, [authLoading, accessToken, loadNotifications]);
+
+  useEffect(() => {
+    if (!authLoading && accessToken) void loadTelegramSettings();
+  }, [authLoading, accessToken, loadTelegramSettings]);
+
+  const saveTelegramSettings = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const apiId = Number(telegramApiId.trim());
+    const apiHash = telegramApiHash.trim();
+    if (!Number.isSafeInteger(apiId) || apiId <= 0 || !/^[a-f0-9]{32}$/i.test(apiHash)) {
+      setTelegramSettingsError('Valid Telegram API ID aur 32-character API hash enter karein.');
+      setTelegramSettingsStatus(null);
+      return;
+    }
+
+    setTelegramSettingsSaving(true);
+    setTelegramSettingsError(null);
+    setTelegramSettingsStatus(null);
+    try {
+      const response = await requestAdmin('/admin/settings/telegram-api', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiId, apiHash }),
+      });
+      if (!response.ok) throw new Error(await readError(response));
+      const data = await response.json() as { updatedAt: string };
+      setTelegramSettingsConfigured(true);
+      setTelegramSettingsUpdatedAt(data.updatedAt);
+      setTelegramApiId('');
+      setTelegramApiHash('');
+      setTelegramSettingsStatus('Settings save ho gayi. Nayi settings lagu karne ke liye app band karke dobara kholein.');
+    } catch (error) {
+      setTelegramSettingsError(error instanceof Error ? error.message : 'Telegram API settings save nahi hui.');
+    } finally {
+      setTelegramSettingsSaving(false);
+    }
+  };
 
   const publishNotification = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -550,6 +613,7 @@ export function AdminPanel() {
     { id: 'users', label: 'Users', icon: Users },
     { id: 'data', label: 'Supabase data', icon: Database },
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'settings', label: 'Settings', icon: KeyRound },
   ];
   const pageCount = Math.max(1, Math.ceil((usersPage?.total || 0) / (usersPage?.pageSize || 20)));
   const datasetPageCount = Math.max(1, Math.ceil((datasetPage?.total || 0) / (datasetPage?.pageSize || 20)));
@@ -579,7 +643,7 @@ export function AdminPanel() {
         <header className="sticky top-0 z-10 flex min-h-16 items-center justify-between border-b border-white/[0.07] bg-[#08090b]/90 px-5 backdrop-blur-xl sm:px-8">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#E50914]/15 text-[#E50914] lg:hidden"><ShieldCheck className="h-5 w-5" /></span>
-            <span className="font-semibold">{section === 'data' ? 'Supabase data explorer' : navItems.find((item) => item.id === section)?.label}</span>
+            <span className="font-semibold">            {section === 'data' ? 'Supabase data explorer' : navItems.find((item) => item.id === section)?.label}</span>
           </div>
             <div className="flex items-center gap-3">
               <span className="hidden max-w-56 truncate text-xs text-zinc-500 sm:block">{authEmail}</span>
@@ -604,10 +668,10 @@ export function AdminPanel() {
           <div className="mb-8">
             <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-[#E50914]">AMZY / Administration</p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-              {section === 'overview' ? 'Dashboard overview' : section === 'users' ? 'User directory' : 'App notifications'}
+              {section === 'overview' ? 'Dashboard overview' : section === 'users' ? 'User directory' : section === 'settings' ? 'App settings' : section === 'data' ? 'Supabase data explorer' : 'App notifications'}
             </h1>
             <p className="mt-1 text-sm text-zinc-500">
-              {section === 'overview' ? 'App users aur announcements ka live snapshot.' : section === 'users' ? 'User profiles aur unki app activity summary.' : 'Announcement publish karein — app ke users ko dikhai jayegi.'}
+              {section === 'overview' ? 'App users aur announcements ka live snapshot.' : section === 'users' ? 'User profiles aur unki app activity summary.' : section === 'settings' ? 'App ke liye global Telegram API configuration manage karein.' : section === 'data' ? 'Supabase mein saved app records browse karein.' : 'Announcement publish karein — app ke users ko dikhai jayegi.'}
             </p>
           </div>
 
@@ -777,6 +841,71 @@ export function AdminPanel() {
                   <button type="button" aria-label="Next data page" disabled={datasetPageNumber >= datasetPageCount || datasetPageLoading} onClick={() => setDatasetPageNumber((value) => value + 1)} className="rounded-lg border border-white/10 p-2 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
                 </div>
               </div>
+            </section>
+          )}
+
+          {section === 'settings' && (
+            <section className="max-w-3xl rounded-2xl border border-white/[0.07] bg-[#111318] p-5 sm:p-6">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">Telegram API settings</h2>
+                  <p className="mt-1 text-xs leading-5 text-zinc-500">
+                    Android app ke Telegram login ke liye my.telegram.org/apps se API ID aur API hash set karein.
+                  </p>
+                </div>
+                <KeyRound className="mt-1 h-4 w-4 shrink-0 text-zinc-500" />
+              </div>
+              <div className="mb-5 rounded-xl border border-white/[0.06] bg-black/20 p-4 text-xs leading-5 text-zinc-400">
+                {telegramSettingsLoading
+                  ? 'Current settings status load ho raha hai…'
+                  : telegramSettingsConfigured
+                    ? `Telegram API configured${telegramSettingsUpdatedAt ? ` · updated ${formatDate(telegramSettingsUpdatedAt)}` : ''}.`
+                    : telegramSettingsConfigured === false
+                      ? 'Telegram API abhi configure nahi hai.'
+                      : 'Configuration status available nahi hai.'}
+                <p className="mt-2 text-zinc-500">
+                  API hash app clients ko runtime par diya jata hai—ise password na samjhein. Pehli baar updated Android APK chahiye; baad mein badli hui settings app dobara kholne par load hongi.
+                </p>
+              </div>
+              {telegramSettingsError && <p role="alert" className="mb-4 text-xs text-red-300">{telegramSettingsError}</p>}
+              {telegramSettingsStatus && <p role="status" className="mb-4 text-xs text-emerald-300">{telegramSettingsStatus}</p>}
+              <form onSubmit={(event) => void saveTelegramSettings(event)} className="space-y-4">
+                <label className="block text-xs font-semibold text-zinc-400">
+                  Telegram API ID
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    pattern="[0-9]+"
+                    required
+                    value={telegramApiId}
+                    onChange={(event) => setTelegramApiId(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none focus:border-[#E50914]/60"
+                  />
+                </label>
+                <label className="block text-xs font-semibold text-zinc-400">
+                  Telegram API hash
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    maxLength={32}
+                    minLength={32}
+                    pattern="[A-Fa-f0-9]{32}"
+                    required
+                    value={telegramApiHash}
+                    onChange={(event) => setTelegramApiHash(event.target.value)}
+                    className="mt-2 w-full rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-sm text-white outline-none focus:border-[#E50914]/60"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={telegramSettingsSaving || telegramSettingsLoading || !telegramApiId.trim() || !telegramApiHash.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E50914] px-4 py-3 text-xs font-bold transition hover:bg-[#b81d24] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {telegramSettingsSaving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                  {telegramSettingsSaving ? 'Saving…' : 'Save Telegram API settings'}
+                </button>
+              </form>
             </section>
           )}
 

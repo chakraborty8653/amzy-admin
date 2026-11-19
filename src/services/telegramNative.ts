@@ -106,6 +106,7 @@ interface TelegramNativePlugin {
   clearCloudSessionToken(): Promise<void>;
   getCloudSyncDisabled(): Promise<{ disabled: boolean }>;
   setCloudSyncDisabled(options: { disabled: boolean }): Promise<void>;
+  configureTelegram(options: { apiId: number; apiHash: string }): Promise<void>;
   getAuthState(): Promise<TelegramNativeAuthState>;
   startLogin(): Promise<TelegramNativeAuthState>;
   setPhoneNumber(options: { phoneNumber: string }): Promise<void>;

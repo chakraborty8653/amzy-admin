@@ -30,14 +30,11 @@ The Android app uses immersive fullscreen and adapts its layout to different scr
 
 ### Configure native Telegram login
 
-1. Create your own Telegram API ID and API hash at [my.telegram.org/apps](https://my.telegram.org/apps).
-2. Add them to the ignored `android/local.properties` file (keep any existing `sdk.dir` line):
-   ```properties
-   telegram.apiId=YOUR_API_ID
-   telegram.apiHash=YOUR_API_HASH
-   ```
-   The API hash is a Telegram client identifier, not a user password. Do not commit `local.properties`.
-3. Run `npm run android:sync`, then rebuild and install the Android app from Android Studio.
+1. Apply the `supabase/migrations/20261119000000_create_telegram_runtime_config.sql` migration and deploy the updated `teleflix-api` Edge Function.
+2. In Admin → Settings, enter the Telegram API ID and API hash from [my.telegram.org/apps](https://my.telegram.org/apps). The Admin API hash is not shown again after saving.
+3. Build and install the updated Android app with `VITE_SUPABASE_FUNCTION_URL` configured. The app fetches the global settings at launch; later changes take effect after the app is closed and reopened.
+
+The Telegram API hash is a client identifier, not a Telegram account password. The runtime config endpoint supplies it to app clients, just as an APK previously contained it.
 
 Telegram phone numbers, login codes, two-step verification passwords, and the TDLib account session are handled by the native app and are not sent to Supabase. After a native Telegram account is ready, the app automatically starts the separate Telegram verification needed for Supabase cloud sync. Complete that verification once in the browser using the same Telegram account; channel references and favorites can then sync to Supabase, while the TDLib session and private media access remain on the device.
 
@@ -112,7 +109,7 @@ The anon/publishable key is included in the public browser bundle; never use the
 
 The admin panel is a separate web page, not part of the AMZY app UI. Open the hosted `/admin.html` page and sign in with a Supabase Auth email/password account. Create or invite the admin account in Supabase Authentication, then add its email to the server-side `ADMIN_SUPABASE_EMAILS` allowlist (comma-separated). For the hosted app, set this under Supabase Dashboard → Edge Functions → Secrets, then deploy `teleflix-api`; for local Express development, set it in the server `.env`. On localhost, admin API requests use the local Express server; hosted admin pages use the deployed Edge Function. Set the public Supabase URL and anon/publishable key as `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`; the anon key is safe for browser use with RLS enabled. Never expose the service-role key or admin email allowlist through a `VITE_` variable.
 
-The panel shows the row counts and searchable, paginated records for the app's Supabase tables: users, channels, favorites, announcements, watch rooms and participants, Telegram login records, native login challenges, registered devices, rate limits, and deleted-account records. Public channels get clickable `t.me` links; newly added private channels retain the original invite link for admins. Older private channel records do not contain their original invite link and are marked as unavailable. Data table cells can be selected or copied. Admins can publish, edit, or delete announcements in the app's existing notifications feed. Admin API calls retry once after refreshing an expired access token when the Supabase Auth refresh session is still valid. Telegram-generated placeholder addresses are hidden from the user list; a real email appears only when one is stored in `users.email`. When adding an email field to the app, save the user's email to that column; subsequent Telegram logins preserve it instead of replacing it with the placeholder. Telegram API keys, bot tokens, auth hashes, device public keys, rate-limit identifiers, and active room codes are never exposed; room codes are masked.
+The panel shows the row counts and searchable, paginated records for the app's Supabase tables: users, channels, favorites, announcements, watch rooms and participants, Telegram login records, native login challenges, registered devices, rate limits, and deleted-account records. Public channels get clickable `t.me` links; newly added private channels retain the original invite link for admins. Older private channel records do not contain their original invite link and are marked as unavailable. Data table cells can be selected or copied. Admins can publish, edit, or delete announcements in the app's existing notifications feed. Admin API calls retry once after refreshing an expired access token when the Supabase Auth refresh session is still valid. Telegram-generated placeholder addresses are hidden from the user list; a real email appears only when one is stored in `users.email`. When adding an email field to the app, save the user's email to that column; subsequent Telegram logins preserve it instead of replacing it with the placeholder. Per-user Telegram keys, bot tokens, auth hashes, device public keys, rate-limit identifiers, and active room codes are never exposed in the data explorer; room codes are masked. The global Telegram API hash configured in Admin → Settings is delivered to app clients at runtime and is not shown back in the admin UI.
 
 The Channels table lists each distinct channel once, even when multiple users added it, and shows the associated user IDs and count. Avatar URLs, subscriber counts, monetization status, and ad network are omitted from this admin view.
 

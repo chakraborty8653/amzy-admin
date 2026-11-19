@@ -1,16 +1,5 @@
 apply plugin: 'com.android.application'
 
-def localProperties = new Properties()
-def localPropertiesFile = rootProject.file('local.properties')
-if (localPropertiesFile.exists()) {
-    localPropertiesFile.withInputStream { localProperties.load(it) }
-}
-
-def telegramApiId = localProperties.getProperty('telegram.apiId', '0').trim()
-def telegramApiHash = localProperties.getProperty('telegram.apiHash', '').trim()
-def escapedTelegramApiId = telegramApiId.replace('\\', '\\\\').replace('"', '\\"')
-def escapedTelegramApiHash = telegramApiHash.replace('\\', '\\\\').replace('"', '\\"')
-
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('keystore.properties')
 if (keystorePropertiesFile.exists()) {
@@ -24,15 +13,13 @@ android {
         applicationId "com.chakrabortycompliance.amzy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 13
-        versionName "1.0.12"
+        versionCode 14
+        versionName "1.0.13"
         // libtdjni.so is only built for these ABIs; 32-bit devices would crash at Telegram startup.
         ndk {
             abiFilters 'arm64-v8a', 'x86_64'
         }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField "String", "TELEGRAM_API_ID", "\"${escapedTelegramApiId}\""
-        buildConfigField "String", "TELEGRAM_API_HASH", "\"${escapedTelegramApiHash}\""
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61

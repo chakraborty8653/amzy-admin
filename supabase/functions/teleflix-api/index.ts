@@ -440,6 +440,37 @@ async function handleAdminRoute(
   if (!isAdminEmail(email)) return json({ error: 'Admin access is not enabled for this email.' }, 403, origin);
   const db = getSupabase();
 
+  if (path === '/admin/settings/telegram-api' && request.method === 'GET') {
+    const { data, error } = await db.from('telegram_runtime_config')
+      .select('updated_at')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    return json({
+      configured: Boolean(data),
+      updatedAt: data?.updated_at || null,
+    }, 200, origin);
+  }
+
+  if (path === '/admin/settings/telegram-api' && request.method === 'PATCH') {
+    const body = await request.json().catch(() => null);
+    const apiId = body && typeof body.apiId === 'number' ? body.apiId : 0;
+    const apiHash = body && typeof body.apiHash === 'string' ? body.apiHash.trim() : '';
+    if (!Number.isSafeInteger(apiId) || apiId <= 0 || !/^[a-f0-9]{32}$/i.test(apiHash)) {
+      return json({ error: 'Enter a valid Telegram API ID and 32-character API hash.' }, 400, origin);
+    }
+
+    const updatedAt = new Date().toISOString();
+    const { error } = await db.from('telegram_runtime_config').upsert({
+      id: true,
+      api_id: apiId,
+      api_hash: apiHash,
+      updated_at: updatedAt,
+    }, { onConflict: 'id' });
+    if (error) throw error;
+    return json({ success: true, configured: true, updatedAt }, 200, origin);
+  }
+
   if (path === '/admin/data' && request.method === 'GET') {
     const table = url.searchParams.get('table') || '';
     if (!table) {
@@ -1761,7 +1792,7 @@ async function route(request: Request): Promise<Response> {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders(origin) });
 
   const url = new URL(request.url);
-  const routeIndex = url.pathname.search(/\/(?:auth|user|admin|telegram|watch|privacy|delete-account)(?:\/|$)/);
+  const routeIndex = url.pathname.search(/\/(?:auth|user|admin|app-config|telegram|watch|privacy|delete-account)(?:\/|$)/);
   const path = routeIndex >= 0
     ? url.pathname.slice(routeIndex)
     : url.pathname.endsWith('/notifications') ? '/notifications' : '/';
@@ -1769,6 +1800,7 @@ async function route(request: Request): Promise<Response> {
     const limits: [boolean, string, number][] = [
       [path.startsWith('/watch/'), 'watch', 240],
       [path === '/telegram/channel-feed', 'channel-feed', 30],
+      [path === '/app-config/telegram', 'telegram-runtime-config', 30],
       [path === '/auth/native/challenge', 'native-challenge', 10],
       [path === '/auth/native/deletion-challenge', 'native-deletion-challenge', 10],
       [path === '/auth/native/session', 'native-session', 60],
@@ -1861,6 +1893,16 @@ async function route(request: Request): Promise<Response> {
         createdAt: notification.created_at,
       })),
     }, 200, origin);
+  }
+  if (request.method === 'GET' && path === '/app-config/telegram') {
+    const { data, error } = await getSupabase()
+      .from('telegram_runtime_config')
+      .select('api_id, api_hash')
+      .eq('id', true)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return json({ error: 'Telegram API settings have not been configured by an admin.' }, 503, origin);
+    return json({ apiId: data.api_id, apiHash: data.api_hash }, 200, origin);
   }
   if (request.method === 'POST' && path === '/auth/logout') {
     return json({ success: true }, 200, origin);
